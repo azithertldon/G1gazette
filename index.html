@@ -162,10 +162,6 @@
 		.article-view img { max-height: 470px; margin: 30px 0; object-fit: cover; }
 		.article-body { max-width: 700px; font-size: 1.08rem; line-height: 1.8; }
 		.article-body p { margin: 0 0 22px; white-space: pre-wrap; }
-		.translation-controls { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
-		.translation-button { padding: 10px 14px; color: var(--white); background: var(--teal); border: 0; border-radius: 2px; font-weight: 700; }
-		.translation-button:disabled { cursor: wait; opacity: 0.7; }
-		.translation-status { color: var(--muted); font-size: 0.85rem; }
 		.back-to-stories { display: inline-block; margin-bottom: 28px; color: var(--teal); font-weight: 700; }
 		.modal-backdrop { display: none; position: fixed; z-index: 10; inset: 0; padding: 20px; background: rgba(24, 35, 43, 0.65); place-items: center; }
 		.modal-backdrop.open { display: grid; }
@@ -1154,14 +1150,6 @@ footer {
 		.article-body {
 			font-size: 0.95rem;
 		}
-		.translation-controls {
-			flex-wrap: wrap;
-			gap: 8px;
-		}
-		.translation-button {
-			padding: 9px 12px;
-			font-size: 0.82rem;
-		}
 		.back-to-stories {
 			font-size: 0.8rem;
 		}
@@ -1186,6 +1174,7 @@ footer {
 		<button data-category="technology">Technology</button>
 		<button data-category="culture">Culture</button>
 		<button data-category="science">Science</button>
+		<button data-category="entertainment">Entertainment</button>
 		<button data-category="campus">Campus life</button>
 	</nav>
 	<div class="modal-backdrop" id="editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-modal-title">
@@ -1341,74 +1330,6 @@ footer {
 			filterStories();
 		}
 
-        function splitTextForTranslation(text, maxLength = 450) {
-            const words = text.match(/\S+\s*/g) || [];
-            const chunks = [];
-            let chunk = '';
-
-            words.forEach((word) => {
-                if (chunk && chunk.length + word.length > maxLength) {
-                    chunks.push(chunk);
-                    chunk = '';
-                }
-                chunk += word;
-            });
-
-            if (chunk) chunks.push(chunk);
-            return chunks;
-        }
-
-        async function translateTextToMalay(text) {
-            const chunks = splitTextForTranslation(text);
-            const translatedChunks = [];
-
-            for (const chunk of chunks) {
-                const query = new URLSearchParams({ q: chunk, langpair: 'en|ms' });
-                const response = await fetch(`https://api.mymemory.translated.net/get?${query}`);
-                if (!response.ok) throw new Error('Translation service is unavailable.');
-
-                const result = await response.json();
-                const translated = result.responseData?.translatedText;
-                if (!translated || result.responseStatus !== 200) {
-                    throw new Error('Could not translate this story right now.');
-                }
-                translatedChunks.push(translated);
-            }
-
-            return translatedChunks.join('');
-        }
-
-        async function translateStoryToMalay(source) {
-            const cacheKey = `news-ms-${source.id}`;
-            const fingerprint = JSON.stringify(source);
-
-            try {
-                const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-                if (cached?.fingerprint === fingerprint) return cached.translation;
-            } catch {
-                // Continue without a cached translation.
-            }
-
-            const translatedParagraphs = [];
-            for (const paragraph of source.paragraphs) {
-                translatedParagraphs.push(await translateTextToMalay(paragraph));
-            }
-
-            const translation = {
-                title: await translateTextToMalay(source.title),
-                summary: await translateTextToMalay(source.summary),
-                paragraphs: translatedParagraphs,
-            };
-
-            try {
-                localStorage.setItem(cacheKey, JSON.stringify({ fingerprint, translation }));
-            } catch {
-                // Translation still works if browser storage is unavailable.
-            }
-
-            return translation;
-        }
-
 		function showArticle(articleId) {
 			const articleView = document.getElementById('article-view');
 			const newsSection = document.getElementById('news-section');
@@ -1440,16 +1361,6 @@ footer {
 				body.append(element);
 				return element;
 			});
-			const controls = document.createElement('div');
-			controls.className = 'translation-controls';
-			const translateButton = document.createElement('button');
-			translateButton.type = 'button';
-			translateButton.className = 'translation-button';
-			translateButton.textContent = 'Translate to Malay';
-			const status = document.createElement('span');
-			status.className = 'translation-status';
-			status.setAttribute('role', 'status');
-			controls.append(translateButton, status);
 			const meta = document.createElement('p');
 			meta.className = 'article-meta';
 			meta.textContent = `By ${story.author} · ${formatStoryDate(story.date === 'Just now' ? story.createdAt : story.date || story.createdAt)}`;
@@ -1459,44 +1370,7 @@ footer {
 			image.style.objectFit = story.imageFit || 'contain';
 			image.style.objectPosition = story.imagePosition || '50% 50%';
 			image.style.backgroundColor = story.imageFit === 'cover' ? 'transparent' : 'var(--paper)';
-			let isTranslated = false;
-			let translatedStory = null;
-			translateButton.addEventListener('click', async () => {
-				if (isTranslated) {
-					title.textContent = story.title;
-					summary.textContent = story.summary;
-					paragraphElements.forEach((element, index) => {
-						element.textContent = originalParagraphs[index];
-					});
-					translateButton.textContent = 'Translate to Malay';
-					status.textContent = '';
-					isTranslated = false;
-					return;
-				}
-				translateButton.disabled = true;
-				status.textContent = 'Translating…';
-				try {
-					translatedStory = translatedStory || await translateStoryToMalay({
-						id: story.id,
-						title: story.title,
-						summary: story.summary,
-						paragraphs: originalParagraphs,
-					});
-					title.textContent = translatedStory.title;
-					summary.textContent = translatedStory.summary;
-					paragraphElements.forEach((element, index) => {
-						element.textContent = translatedStory.paragraphs[index] || originalParagraphs[index];
-					});
-					translateButton.textContent = 'Show original';
-					status.textContent = 'Malay translation on';
-					isTranslated = true;
-				} catch (error) {
-					status.textContent = error.message || 'Translation failed. Please try again.';
-				} finally {
-					translateButton.disabled = false;
-				}
-			});
-			articleView.append(back, category, title, summary, controls, meta, image, body);
+			articleView.append(back, category, title, summary, meta, image, body);
 			newsSection.classList.add('hidden');
 			articleView.classList.add('open');
 		}
