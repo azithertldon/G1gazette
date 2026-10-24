@@ -1246,7 +1246,9 @@ footer {
 
 		function formatStoryDate(value) {
 			if (!value) return 'Recently';
-			const date = value.seconds ? new Date(value.seconds * 1000) : new Date(value);
+			const date = value.seconds ? new Date(value.seconds * 1000) : typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+				? new Date(`${value}T00:00:00`)
+				: new Date(value);
 			return Number.isNaN(date.getTime()) ? 'Recently' : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 		}
 
@@ -1319,7 +1321,7 @@ footer {
 
 		function renderPublishedStories(stories) {
 			const getStoryTime = (story) => {
-				const value = story.createdAt || story.date;
+				const value = story.date === 'Just now' ? story.createdAt : story.date || story.createdAt;
 				if (value?.seconds) return value.seconds * 1000;
 				const time = Date.parse(value || '');
 				return Number.isNaN(time) ? 0 : time;
@@ -1405,6 +1407,7 @@ footer {
 			}
 
 			emptyState.style.display = visibleCount ? 'none' : 'block';
+			emptyState.textContent = 'No stories published yet. Check back when the newsroom publishes its first update.';
 		}
 
 		categoryButtons.forEach((button) => {
