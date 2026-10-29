@@ -58,22 +58,20 @@
 		.editor-form label { display: grid; gap: 5px; font-size: 0.82rem; font-weight: 700; }
 		.editor-form input, .editor-form textarea, .editor-form select { width: 100%; padding: 11px; color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 2px; font: inherit; }
 		.editor-form textarea { min-height: 110px; resize: vertical; }
-		#article-body { min-height: 220px; overflow-y: hidden; }
 		.editor-form input:focus, .editor-form textarea:focus, .editor-form select:focus { border-color: var(--red); outline: 2px solid rgba(179, 19, 27, 0.16); }
-		.image-customizer { display: grid; gap: 10px; padding: 14px; background: var(--paper); border: 1px solid var(--line); }
-		.image-list { display: grid; gap: 12px; }
-		.image-item { display: grid; gap: 10px; padding: 12px; background: var(--white); border: 1px solid var(--line); }
-		.image-item-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-		.image-item-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-		.image-preview { width: min(100%, 420px); aspect-ratio: 16 / 9; overflow: hidden; background: #efe2a6; }
-		.image-preview img { width: 100%; height: 100%; object-fit: contain; }
-		.image-caption-count { color: var(--muted); font-size: 0.75rem; font-weight: 400; }
-		.image-list-empty { margin: 0; color: var(--muted); font-size: 0.82rem; }
-		.image-position-fields { display: grid; gap: 8px; }
-		.range-row { display: grid; grid-template-columns: 1fr 54px; gap: 10px; align-items: center; }
-		.range-row input { width: 100%; padding: 0; accent-color: var(--red); }
-		.range-row output { color: var(--red-dark); font-size: 0.78rem; text-align: right; }
-		.shape-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+		.story-composer { display: grid; gap: 12px; padding: 16px; background: var(--paper); border: 1px solid var(--line); }
+		.composer-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+		.composer-toolbar .small-button { cursor: pointer; }
+		.story-block-list { display: grid; gap: 12px; }
+		.story-block { display: grid; gap: 10px; padding: 12px; background: var(--white); border: 1px solid var(--line); }
+		.story-block-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+		.story-block-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+		.story-block textarea { min-height: 110px; }
+		.block-preview { width: 100%; min-height: 170px; padding: 12px; overflow: hidden; background: #efe2a6; }
+		.block-preview img { display: block; max-width: 100%; max-height: 300px; margin: 0 auto; object-fit: contain; }
+		.block-caption-count { color: var(--muted); font-size: 0.75rem; font-weight: 400; }
+		.block-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+		.composer-empty { margin: 0; color: var(--muted); font-size: 0.85rem; }
 		.submit-button { padding: 12px 16px; color: var(--white); background: var(--red); border: 0; border-radius: 2px; font-weight: 800; }
 		.submit-button:hover { background: var(--red-dark); }
 		.status { min-height: 24px; margin: 0; color: var(--red-dark); font-size: 0.85rem; font-weight: 700; }
@@ -141,17 +139,20 @@
 			<form class="editor-form" id="article-form">
 				<label>Headline <input id="article-title" type="text" placeholder="Your news headline" required /></label>
 				<label>Summary <textarea id="article-summary" placeholder="A short description of the story" required></textarea></label>
-				<label>Full coverage <textarea id="article-body" placeholder="Write the complete news story here" required></textarea></label>
 				<label>Publication date <input id="article-date" type="date" required /></label>
 				<label>Category <select id="article-category"><option value="politics">Politics</option><option value="technology">Technology</option><option value="culture">Culture</option><option value="science">Science</option><option value="entertainment">Entertainment</option><option value="sports">Sports</option><option value="business">Business</option><option value="crime">Crime</option><option value="campus">Campus life</option></select></label>
 				<label>Author <input id="article-author" type="text" placeholder="Your name" required /></label>
-				<label>Images (optional, up to 10) <input id="article-image" type="file" accept="image/*" multiple /></label>
-				<div class="image-customizer">
-					<strong>Arrange and customize images</strong>
-					<p class="image-list-empty" id="image-list-empty">No images selected. Stories can be published without images.</p>
-					<div class="image-list" id="image-list"></div>
-					<div class="shape-fields"><label>Image shape width <input id="article-image-width" type="number" min="1" max="200" value="16" required /></label><label>Image shape height <input id="article-image-height" type="number" min="1" max="200" value="9" required /></label></div>
-				</div>
+				<section class="story-composer" aria-labelledby="composer-heading">
+					<strong id="composer-heading">Build the story layout</strong>
+					<p class="composer-empty">Add paragraphs and images in the order you want them to appear. Move any block up or down to place images between paragraphs.</p>
+					<div class="composer-toolbar">
+						<button class="small-button" id="add-paragraph" type="button">+ Add paragraph</button>
+						<label class="small-button" for="article-image">+ Add images (up to 10)</label>
+						<input id="article-image" type="file" accept="image/*" multiple hidden />
+					</div>
+					<p class="composer-empty" id="story-blocks-empty">No content blocks yet. Add a paragraph to get started. Images are optional.</p>
+					<div class="story-block-list" id="story-block-list"></div>
+				</section>
 				<button class="submit-button" id="article-submit" type="submit">Publish story</button>
 				<p class="status" id="article-status" role="status"></p>
 			</form>
@@ -201,7 +202,7 @@
 			editor: { username: 'editor', password: 'editor123', role: 'editor' },
 		};
 		let editingIndex = null;
-		let editorImages = [];
+		let storyBlocks = [];
 		const MAX_STORY_IMAGES = 10;
 		const MAX_CAPTION_WORDS = 20;
 
@@ -227,128 +228,108 @@
 			return caption.trim().split(/\s+/).filter(Boolean).length;
 		}
 
-		function updateImagePreview(index) {
-			const item = editorImages[index];
-			const preview = document.querySelector(`[data-image-preview="${index}"]`);
-			if (!item || !preview) return;
-			preview.style.objectFit = item.fit;
-			preview.style.objectPosition = `${item.positionX}% ${item.positionY}%`;
-			preview.style.aspectRatio = `${document.getElementById('article-image-width').value} / ${document.getElementById('article-image-height').value}`;
-			preview.style.transform = `scale(${item.zoom})`;
-			preview.style.transformOrigin = `${item.positionX}% ${item.positionY}%`;
-		}
-
-		function renderEditorImages() {
-			const list = document.getElementById('image-list');
+		function renderStoryBlocks() {
+			const list = document.getElementById('story-block-list');
 			list.textContent = '';
-			document.getElementById('image-list-empty').hidden = editorImages.length > 0;
-			editorImages.forEach((item, index) => {
+			const imageCount = storyBlocks.filter((block) => block.type === 'image').length;
+			document.getElementById('story-blocks-empty').hidden = storyBlocks.length > 0;
+			storyBlocks.forEach((block, index) => {
 				const card = document.createElement('article');
-				card.className = 'image-item';
+				card.className = 'story-block';
 				const header = document.createElement('div');
-				header.className = 'image-item-header';
+				header.className = 'story-block-header';
 				const title = document.createElement('strong');
-				title.textContent = `Image ${index + 1}`;
+				title.textContent = block.type === 'image'
+					? `Image ${storyBlocks.slice(0, index + 1).filter((item) => item.type === 'image').length}`
+					: `Paragraph ${storyBlocks.slice(0, index + 1).filter((item) => item.type === 'text').length}`;
 				const actions = document.createElement('div');
-				actions.className = 'image-item-actions';
+				actions.className = 'story-block-actions';
 				[
 					{ action: 'up', text: 'Move up', disabled: index === 0 },
-					{ action: 'down', text: 'Move down', disabled: index === editorImages.length - 1 },
+					{ action: 'down', text: 'Move down', disabled: index === storyBlocks.length - 1 },
 					{ action: 'remove', text: 'Remove', disabled: false },
 				].forEach(({ action, text, disabled }) => {
 					const button = document.createElement('button');
 					button.type = 'button';
 					button.className = 'small-button';
-					button.dataset.imageAction = action;
+					button.dataset.blockAction = action;
 					button.dataset.index = index;
 					button.disabled = disabled;
 					button.textContent = text;
 					actions.append(button);
 				});
 				header.append(title, actions);
-				const preview = document.createElement('div');
-				preview.className = 'image-preview';
-				const image = document.createElement('img');
-				image.src = item.previewUrl || item.src;
-				image.alt = `Preview of image ${index + 1}`;
-				image.dataset.imagePreview = index;
-				preview.append(image);
-				const captionLabel = document.createElement('label');
-				captionLabel.textContent = 'Caption (optional, 20 words maximum)';
-				const captionInput = document.createElement('input');
-				captionInput.type = 'text';
-				captionInput.value = item.caption || '';
-				captionInput.dataset.imageField = 'caption';
-				captionInput.dataset.index = index;
-				captionInput.setAttribute('aria-label', `Caption for image ${index + 1}`);
-				const wordCount = document.createElement('span');
-				wordCount.className = 'image-caption-count';
-				wordCount.dataset.captionCount = index;
-				wordCount.textContent = `${captionWordCount(captionInput.value)}/${MAX_CAPTION_WORDS} words`;
-				captionLabel.append(captionInput, wordCount);
-				const position = document.createElement('details');
-				position.className = 'image-position-fields';
-				const summary = document.createElement('summary');
-				summary.textContent = 'Image position and crop';
-				position.append(summary);
-				const fitLabel = document.createElement('label');
-				fitLabel.textContent = 'Image fitting';
-				const fitSelect = document.createElement('select');
-				fitSelect.dataset.imageField = 'fit';
-				fitSelect.dataset.index = index;
-				[['contain', 'Show full image'], ['cover', 'Fill frame (crop edges)']].forEach(([value, text]) => {
-					const option = document.createElement('option');
-					option.value = value;
-					option.textContent = text;
-					fitSelect.append(option);
-				});
-				fitSelect.value = item.fit;
-				fitLabel.append(fitSelect);
-				position.append(fitLabel);
-				[
-					{ field: 'positionX', label: 'Horizontal focus', min: 0, max: 100, step: 1, value: item.positionX, suffix: '%' },
-					{ field: 'positionY', label: 'Vertical focus', min: 0, max: 100, step: 1, value: item.positionY, suffix: '%' },
-					{ field: 'zoom', label: 'Image zoom', min: 100, max: 300, step: 5, value: Math.round(item.zoom * 100), suffix: '%' },
-				].forEach(({ field, label, min, max, step, value, suffix }) => {
-					const controlLabel = document.createElement('label');
-					controlLabel.textContent = label;
-					const row = document.createElement('span');
-					row.className = 'range-row';
-					const input = document.createElement('input');
-					input.type = 'range';
-					input.min = min;
-					input.max = max;
-					input.step = step;
-					input.value = value;
-					input.dataset.imageField = field;
-					input.dataset.index = index;
-					const output = document.createElement('output');
-					output.textContent = `${value}${suffix}`;
-					output.dataset.imageOutput = field;
-					output.dataset.index = index;
-					row.append(input, output);
-					controlLabel.append(row);
-					position.append(controlLabel);
-				});
-				card.append(header, preview, captionLabel, position);
+				card.append(header);
+				if (block.type === 'text') {
+					const paragraph = document.createElement('textarea');
+					paragraph.value = block.text || '';
+					paragraph.placeholder = 'Write this paragraph…';
+					paragraph.dataset.blockField = 'text';
+					paragraph.dataset.index = index;
+					paragraph.setAttribute('aria-label', `Paragraph ${storyBlocks.slice(0, index + 1).filter((item) => item.type === 'text').length}`);
+					card.append(paragraph);
+				} else {
+					const preview = document.createElement('div');
+					preview.className = 'block-preview';
+					const image = document.createElement('img');
+					image.src = block.previewUrl || block.src;
+					image.alt = `Image ${storyBlocks.slice(0, index + 1).filter((item) => item.type === 'image').length} preview`;
+					image.style.width = `${block.width || 60}%`;
+					image.style.marginLeft = block.alignment === 'left' ? '0' : block.alignment === 'right' ? 'auto' : 'auto';
+					image.style.marginRight = block.alignment === 'right' ? '0' : 'auto';
+					preview.append(image);
+					const captionLabel = document.createElement('label');
+					captionLabel.textContent = 'Caption (optional, 20 words maximum)';
+					const captionInput = document.createElement('input');
+					captionInput.type = 'text';
+					captionInput.value = block.caption || '';
+					captionInput.dataset.blockField = 'caption';
+					captionInput.dataset.index = index;
+					captionInput.setAttribute('aria-label', `Caption for image ${imageCount}`);
+					const captionCount = document.createElement('span');
+					captionCount.className = 'block-caption-count';
+					captionCount.dataset.captionCount = index;
+					captionCount.textContent = `${captionWordCount(captionInput.value)}/${MAX_CAPTION_WORDS} words`;
+					captionLabel.append(captionInput, captionCount);
+					const layout = document.createElement('div');
+					layout.className = 'block-layout';
+					const alignmentLabel = document.createElement('label');
+					alignmentLabel.textContent = 'Image placement';
+					const alignment = document.createElement('select');
+					alignment.dataset.blockField = 'alignment';
+					alignment.dataset.index = index;
+					[['left', 'Left'], ['center', 'Center'], ['right', 'Right']].forEach(([value, label]) => {
+						const option = document.createElement('option');
+						option.value = value;
+						option.textContent = label;
+						alignment.append(option);
+					});
+					alignment.value = block.alignment || 'center';
+					alignmentLabel.append(alignment);
+					const widthLabel = document.createElement('label');
+					widthLabel.textContent = `Image width (${block.width || 60}%)`;
+					const width = document.createElement('input');
+					width.type = 'range';
+					width.min = '25';
+					width.max = '100';
+					width.step = '5';
+					width.value = block.width || 60;
+					width.dataset.blockField = 'width';
+					width.dataset.index = index;
+					widthLabel.append(width);
+					layout.append(alignmentLabel, widthLabel);
+					card.append(preview, captionLabel, layout);
+				}
 				list.append(card);
-				updateImagePreview(index);
 			});
 		}
 
-		function releaseEditorImages() {
-			editorImages.forEach((item) => {
-				if (item.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+		function clearStoryBlocks() {
+			storyBlocks.forEach((block) => {
+				if (block.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(block.previewUrl);
 			});
-			editorImages = [];
-			renderEditorImages();
-		}
-
-		function restoreImageShape(value) {
-			const matches = value?.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
-			document.getElementById('article-image-width').value = matches ? matches[1] : 16;
-			document.getElementById('article-image-height').value = matches ? matches[2] : 9;
-			editorImages.forEach((item, index) => updateImagePreview(index));
+			storyBlocks = [];
+			renderStoryBlocks();
 		}
 		const role = new URLSearchParams(window.location.search).get('role');
 		if (!roleSettings[role]) window.location.href = 'index.html';
@@ -357,13 +338,7 @@
 		document.getElementById('dashboard-intro').textContent = settings.intro;
 		document.getElementById('role-notice').textContent = settings.notice;
 		document.querySelector(`[data-card="${role}"]`).classList.add('active');
-		const articleBodyInput = document.getElementById('article-body');
 		document.getElementById('article-date').value = localDateValue(new Date());
-		function resizeArticleBody() {
-			articleBodyInput.style.height = 'auto';
-			articleBodyInput.style.height = `${articleBodyInput.scrollHeight}px`;
-		}
-		articleBodyInput.addEventListener('input', resizeArticleBody);
 		const publishSuccess = document.getElementById('publish-success');
 		function showPublishSuccess() {
 			publishSuccess.classList.add('open');
@@ -488,33 +463,35 @@
 				document.getElementById('article-title').value = story.title;
 				document.getElementById('article-summary').value = story.summary;
 				document.getElementById('article-date').value = dateInputValue(story.date === 'Just now' ? story.createdAt : story.date || story.createdAt);
-				document.getElementById('article-body').value = story.body || story.summary;
-				resizeArticleBody();
 				document.getElementById('article-category').value = story.category;
 				document.getElementById('article-author').value = story.author;
-				editorImages = (Array.isArray(story.images) && story.images.length ? story.images : story.image ? [{
+				const storyImages = (Array.isArray(story.images) && story.images.length ? story.images : story.image ? [{
 					src: story.image,
 					caption: story.imageCaption || '',
-					fit: story.imageFit,
-					position: story.imagePosition,
-					zoom: story.imageZoom,
+					alignment: 'center',
+					width: 60,
 				}] : []).slice(0, MAX_STORY_IMAGES).map((image) => {
-					const position = image.position || image.imagePosition || story.imagePosition || '50% 50%';
-					const matches = position.match(/(\d+)\s*%\s+(\d+)\s*%/);
 					return {
 						src: image.src || image.image || '',
 						previewUrl: image.src || image.image || '',
 						file: null,
 						caption: image.caption || '',
-						fit: image.fit || image.imageFit || story.imageFit || 'contain',
-						positionX: matches ? Number(matches[1]) : 50,
-						positionY: matches ? Number(matches[2]) : 50,
-						zoom: image.zoom || image.imageZoom || story.imageZoom || 1,
+						alignment: image.alignment || 'center',
+						width: Number(image.width) || 60,
 					};
 				});
-				restoreImageShape(story.imageAspectRatio);
-				renderEditorImages();
-				document.getElementById('article-image').required = false;
+				if (Array.isArray(story.contentBlocks)) {
+					storyBlocks = story.contentBlocks.map((block) => {
+						if (block.type === 'text') return { type: 'text', text: block.text || '' };
+						const image = storyImages[block.imageIndex];
+						return image ? { type: 'image', ...image } : null;
+					}).filter(Boolean);
+				} else {
+					storyBlocks = (story.body || '').split(/\n\s*\n/).filter((paragraph) => paragraph.trim()).map((text) => ({ type: 'text', text }));
+					storyBlocks.push(...storyImages.map((image) => ({ type: 'image', ...image })));
+				}
+				if (!storyBlocks.some((block) => block.type === 'text')) storyBlocks.unshift({ type: 'text', text: '' });
+				renderStoryBlocks();
 				document.getElementById('article-submit').textContent = 'Save story changes';
 				document.getElementById('upload-panel').scrollIntoView({ behavior: 'smooth' });
 			}
@@ -523,46 +500,58 @@
 		document.getElementById('article-form').addEventListener('submit', async (event) => {
 			event.preventDefault();
 			const status = document.getElementById('article-status');
-			if (editorImages.length > MAX_STORY_IMAGES) {
+			const imageBlocks = storyBlocks.filter((block) => block.type === 'image');
+			if (imageBlocks.length > MAX_STORY_IMAGES) {
 				status.textContent = `Stories can have no more than ${MAX_STORY_IMAGES} images.`;
 				return;
 			}
-			const captionTooLong = editorImages.findIndex((item) => captionWordCount(item.caption || '') > MAX_CAPTION_WORDS);
+			const captionTooLong = imageBlocks.findIndex((item) => captionWordCount(item.caption || '') > MAX_CAPTION_WORDS);
 			if (captionTooLong !== -1) {
 				status.textContent = `Image ${captionTooLong + 1} caption must be ${MAX_CAPTION_WORDS} words or fewer.`;
 				return;
 			}
-			if (editorImages.some((item) => item.file && !item.file.type.startsWith('image/'))) {
+			if (!storyBlocks.some((block) => block.type === 'text' && block.text.trim())) {
+				status.textContent = 'Add at least one paragraph to the story.';
+				return;
+			}
+			if (imageBlocks.some((item) => item.file && !item.file.type.startsWith('image/'))) {
 				status.textContent = 'Please choose image files only.';
 				return;
 			}
 			status.textContent = 'Saving story…';
 			try {
 				const stories = await getStories();
-				const width = document.getElementById('article-image-width').value;
-				const height = document.getElementById('article-image-height').value;
-				const images = await Promise.all(editorImages.map(async (item) => ({
+				const images = await Promise.all(imageBlocks.map(async (item) => ({
 					src: item.file ? await window.newsFirebase.prepareImage(item.file) : item.src,
 					caption: (item.caption || '').trim(),
-					fit: item.fit,
-					position: `${item.positionX}% ${item.positionY}%`,
-					zoom: item.zoom,
-					aspectRatio: `${width}/${height}`,
+					alignment: item.alignment || 'center',
+					width: Number(item.width) || 60,
 				})));
 				const firstImage = images[0];
+				let imageIndex = 0;
+				const contentBlocks = storyBlocks.map((block) => {
+					if (block.type === 'text') return { type: 'text', text: block.text };
+					return { type: 'image', imageIndex: imageIndex++ };
+				});
+				const bodyText = storyBlocks
+					.filter((block) => block.type === 'text')
+					.map((block) => block.text.trim())
+					.filter(Boolean)
+					.join('\n\n');
 				const story = {
 					title: document.getElementById('article-title').value,
 					summary: document.getElementById('article-summary').value,
-					body: document.getElementById('article-body').value,
+					body: bodyText,
+					contentBlocks,
 					category: document.getElementById('article-category').value,
 					author: document.getElementById('article-author').value,
 					images,
 					image: firstImage?.src || '',
 					imageCaption: firstImage?.caption || '',
-					imageFit: firstImage?.fit || 'contain',
-					imageAspectRatio: `${width}/${height}`,
-					imagePosition: firstImage?.position || '50% 50%',
-					imageZoom: firstImage?.zoom || 1,
+					imageFit: 'contain',
+					imageAspectRatio: '16/9',
+					imagePosition: '50% 50%',
+					imageZoom: 1,
 					date: publicationDateValue(),
 				};
 				const existingStory = editingIndex === null ? null : stories[editingIndex];
@@ -582,10 +571,9 @@
 				showPublishSuccess();
 				editingIndex = null;
 				document.getElementById('article-submit').textContent = 'Publish story';
-				releaseEditorImages();
+				clearStoryBlocks();
 				document.getElementById('article-form').reset();
 				document.getElementById('article-date').value = localDateValue(new Date());
-				restoreImageShape('');
 				if (role === 'administrator' || role === 'chief-director') renderStoryManager();
 			} catch (error) {
 				const reason = error.code === 'permission-denied' ? 'Firebase permissions blocked this upload.' : error.message;
@@ -593,11 +581,18 @@
 				console.error(error);
 			}
 		});
+		document.getElementById('add-paragraph').addEventListener('click', () => {
+			storyBlocks.push({ type: 'text', text: '' });
+			renderStoryBlocks();
+			const paragraphs = document.querySelectorAll('[data-block-field="text"]');
+			paragraphs[paragraphs.length - 1]?.focus();
+		});
 		document.getElementById('article-image').addEventListener('change', (event) => {
 			const files = [...event.target.files];
 			const status = document.getElementById('article-status');
-			if (editorImages.length + files.length > MAX_STORY_IMAGES) {
-				status.textContent = `You can select up to ${MAX_STORY_IMAGES - editorImages.length} more image(s).`;
+			const imageCount = storyBlocks.filter((block) => block.type === 'image').length;
+			if (imageCount + files.length > MAX_STORY_IMAGES) {
+				status.textContent = `You can add up to ${MAX_STORY_IMAGES - imageCount} more image(s).`;
 				event.target.value = '';
 				return;
 			}
@@ -607,58 +602,63 @@
 				event.target.value = '';
 				return;
 			}
-			files.forEach((file) => editorImages.push({
+			files.forEach((file) => storyBlocks.push({
+				type: 'image',
 				src: '',
 				previewUrl: URL.createObjectURL(file),
 				file,
 				caption: '',
-				fit: 'contain',
-				positionX: 50,
-				positionY: 50,
-				zoom: 1,
+				alignment: 'center',
+				width: 60,
 			}));
 			status.textContent = '';
-			renderEditorImages();
+			renderStoryBlocks();
 			event.target.value = '';
 		});
-		document.getElementById('image-list').addEventListener('input', (event) => {
-			const input = event.target.closest('[data-image-field]');
+		document.getElementById('story-block-list').addEventListener('input', (event) => {
+			const input = event.target.closest('[data-block-field]');
 			if (!input) return;
 			const index = Number(input.dataset.index);
-			const item = editorImages[index];
-			if (!item) return;
-			if (input.dataset.imageField === 'caption') {
-				item.caption = input.value;
+			const block = storyBlocks[index];
+			if (!block) return;
+			const field = input.dataset.blockField;
+			if (field === 'text') {
+				block.text = input.value;
+				return;
+			}
+			if (field === 'caption') {
+				const words = input.value.trim().split(/\s+/).filter(Boolean);
+				if (words.length > MAX_CAPTION_WORDS) input.value = words.slice(0, MAX_CAPTION_WORDS).join(' ');
+				block.caption = input.value;
 				document.querySelector(`[data-caption-count="${index}"]`).textContent = `${captionWordCount(input.value)}/${MAX_CAPTION_WORDS} words`;
 				return;
 			}
-			const field = input.dataset.imageField;
-			const value = Number(input.value);
-			if (field === 'positionX' || field === 'positionY') item[field] = value;
-			else if (field === 'zoom') item.zoom = value / 100;
-			else if (field === 'fit') item.fit = input.value;
-			const output = document.querySelector(`[data-image-output="${field}"][data-index="${index}"]`);
-			if (output) output.textContent = `${value}${field === 'zoom' ? '%' : '%'}`;
-			updateImagePreview(index);
+			if (field === 'alignment') block.alignment = input.value;
+			if (field === 'width') {
+				block.width = Number(input.value);
+				input.parentElement.firstChild.textContent = `Image width (${block.width}%)`;
+			}
+			const previewImage = input.closest('.story-block').querySelector('.block-preview img');
+			previewImage.style.width = `${block.width || 60}%`;
+			previewImage.style.marginLeft = block.alignment === 'left' ? '0' : 'auto';
+			previewImage.style.marginRight = block.alignment === 'right' ? '0' : 'auto';
 		});
-		document.getElementById('image-list').addEventListener('click', (event) => {
-			const button = event.target.closest('[data-image-action]');
+		document.getElementById('story-block-list').addEventListener('click', (event) => {
+			const button = event.target.closest('[data-block-action]');
 			if (!button) return;
 			const index = Number(button.dataset.index);
-			const action = button.dataset.imageAction;
+			const action = button.dataset.blockAction;
 			if (action === 'remove') {
-				if (editorImages[index].previewUrl?.startsWith('blob:')) URL.revokeObjectURL(editorImages[index].previewUrl);
-				editorImages.splice(index, 1);
+				if (storyBlocks[index].previewUrl?.startsWith('blob:')) URL.revokeObjectURL(storyBlocks[index].previewUrl);
+				storyBlocks.splice(index, 1);
 			} else {
 				const nextIndex = action === 'up' ? index - 1 : index + 1;
-				if (nextIndex < 0 || nextIndex >= editorImages.length) return;
-				[editorImages[index], editorImages[nextIndex]] = [editorImages[nextIndex], editorImages[index]];
+				if (nextIndex < 0 || nextIndex >= storyBlocks.length) return;
+				[storyBlocks[index], storyBlocks[nextIndex]] = [storyBlocks[nextIndex], storyBlocks[index]];
 			}
-			renderEditorImages();
+			renderStoryBlocks();
 		});
-		document.getElementById('article-image-width').addEventListener('input', () => editorImages.forEach((item, index) => updateImagePreview(index)));
-		document.getElementById('article-image-height').addEventListener('input', () => editorImages.forEach((item, index) => updateImagePreview(index)));
-		renderEditorImages();
+		renderStoryBlocks();
 	</script>
 </body>
 </html>

@@ -89,6 +89,8 @@
 		.editor-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; padding: 10px 14px; color: var(--white); background: var(--coral); border: 2px solid var(--coral); border-radius: 4px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
 		.editor-button:hover { color: var(--white); background: var(--teal); }
 		.editor-button:active { transform: translateY(2px); }
+		.staff-only { display: none; }
+		.staff-only.visible { display: inline-flex; }
 		.category-nav {
 			display: flex;
 			gap: 26px;
@@ -158,6 +160,11 @@
 		.article-view .article-summary { color: var(--muted); font-size: 1.15rem; }
 		.article-view .article-meta { color: var(--muted); font-size: 0.85rem; }
 		.article-view img { max-height: 470px; margin: 30px 0; object-fit: cover; }
+		.article-view .article-figure { margin-top: 26px; margin-bottom: 30px; }
+		.article-view .article-image-frame { max-height: 470px; overflow: hidden; background: var(--white); }
+		.article-view .article-figure img { display: block; width: 100%; height: auto; max-height: 470px; margin: 0; object-fit: contain; }
+		.article-view .article-figure figcaption { padding: 8px 0 0; color: var(--muted); font-size: 0.88rem; font-style: italic; line-height: 1.5; }
+		.article-gallery { display: grid; gap: 4px; margin: 30px 0; }
 		.article-body { max-width: 700px; font-size: 1.08rem; line-height: 1.8; }
 		.article-body p { margin: 0 0 22px; white-space: pre-wrap; }
 		.back-to-stories { display: inline-block; margin-bottom: 28px; color: var(--teal); font-weight: 700; }
@@ -990,6 +997,24 @@ footer {
 		box-shadow: 0 16px 30px rgba(23, 23, 23, 0.12);
 	}
 
+	.article-view .article-figure img {
+		width: 100%;
+		height: auto;
+		max-height: 470px;
+		margin: 0;
+		border-radius: 0;
+		box-shadow: none;
+	}
+
+	.article-view .article-image-frame {
+		border-radius: 18px;
+		box-shadow: 0 16px 30px rgba(23, 23, 23, 0.12);
+	}
+
+	.article-view .article-figure figcaption {
+		padding: 10px 4px 0;
+	}
+
 	.back-to-stories {
 		background: linear-gradient(135deg, rgba(240, 199, 91, 0.22), rgba(240, 199, 91, 0.12));
 		border: 1px solid rgba(240, 199, 91, 0.7);
@@ -1163,7 +1188,7 @@ footer {
 		</a>
 		<div class="header-actions">
 			<label class="search-box"><span class="sr-only">Search stories</span><span class="search-icon" aria-hidden="true"></span><input id="search-input" type="search" aria-label="Search" placeholder="Search" /></label>
-			<a class="editor-button" href="staff.html">Staff login</a>
+			<button class="editor-button staff-only" id="editor-login-button" type="button">Staff login</button>
 		</div>
 	</header>
 	<nav class="category-nav" aria-label="News categories">
@@ -1222,6 +1247,9 @@ footer {
 			'chief-director': { username: 'director', password: 'director123', role: 'chief-director' },
 			editor: { username: 'editor', password: 'editor123', role: 'editor' },
 		};
+		if (new URLSearchParams(window.location.search).get('staff') === '1') {
+			document.getElementById('editor-login-button').classList.add('visible');
+		}
 
 		function loadSiteSettings() {
 			const settings = JSON.parse(localStorage.getItem('siteSettings') || '{}');
@@ -1332,6 +1360,32 @@ footer {
 			filterStories();
 		}
 
+		function createStoryImageFigure(story, item, index) {
+			const figure = document.createElement('figure');
+			figure.className = 'article-figure';
+			const alignment = item.alignment || 'center';
+			figure.style.width = `${Math.min(100, Math.max(25, Number(item.width) || 60))}%`;
+			figure.style.marginLeft = alignment === 'left' ? '0' : 'auto';
+			figure.style.marginRight = alignment === 'right' ? '0' : 'auto';
+			const frame = document.createElement('div');
+			frame.className = 'article-image-frame';
+			const image = document.createElement('img');
+			image.src = item.src || item.image;
+			image.alt = item.caption || `${story.title} image ${index + 1}`;
+			image.style.objectFit = item.fit || item.imageFit || story.imageFit || 'contain';
+			image.style.objectPosition = item.position || item.imagePosition || story.imagePosition || '50% 50%';
+			image.style.transform = `scale(${item.zoom || item.imageZoom || story.imageZoom || 1})`;
+			image.style.transformOrigin = image.style.objectPosition;
+			frame.append(image);
+			figure.append(frame);
+			if (item.caption) {
+				const caption = document.createElement('figcaption');
+				caption.textContent = item.caption;
+				figure.append(caption);
+			}
+			return figure;
+		}
+
 		function showArticle(articleId) {
 			const articleView = document.getElementById('article-view');
 			const newsSection = document.getElementById('news-section');
@@ -1354,25 +1408,48 @@ footer {
 			const summary = document.createElement('p');
 			summary.className = 'article-summary';
 			summary.textContent = story.summary;
-			const originalParagraphs = (story.body || story.summary || '').split(/\n\s*\n/).filter((paragraph) => paragraph.trim().length > 0);
 			const body = document.createElement('div');
 			body.className = 'article-body';
-			const paragraphElements = originalParagraphs.map((paragraphText) => {
-				const element = document.createElement('p');
-				element.textContent = paragraphText;
-				body.append(element);
-				return element;
-			});
 			const meta = document.createElement('p');
 			meta.className = 'article-meta';
 			meta.textContent = `By ${story.author} · ${formatStoryDate(story.date === 'Just now' ? story.createdAt : story.date || story.createdAt)}`;
-			const image = document.createElement('img');
-			image.src = story.image;
-			image.alt = story.title;
-			image.style.objectFit = story.imageFit || 'contain';
-			image.style.objectPosition = story.imagePosition || '50% 50%';
-			image.style.backgroundColor = story.imageFit === 'cover' ? 'transparent' : 'var(--paper)';
-			articleView.append(back, category, title, summary, meta, image, body);
+			let legacyGallery = null;
+			if (Array.isArray(story.contentBlocks)) {
+				(story.contentBlocks || []).forEach((block) => {
+					if (block.type === 'text') {
+						if (!block.text?.trim()) return;
+						const paragraph = document.createElement('p');
+						paragraph.textContent = block.text;
+						body.append(paragraph);
+					} else if (block.type === 'image') {
+						const item = story.images?.[block.imageIndex];
+						if (item && (item.src || item.image)) body.append(createStoryImageFigure(story, item, block.imageIndex));
+					}
+				});
+			} else {
+				const images = Array.isArray(story.images) && story.images.length ? story.images : story.image ? [{
+					src: story.image,
+					caption: story.imageCaption,
+					fit: story.imageFit,
+					position: story.imagePosition,
+					zoom: story.imageZoom,
+				}] : [];
+				if (images.length) {
+					legacyGallery = document.createElement('div');
+					legacyGallery.className = 'article-gallery';
+					images.forEach((item, index) => {
+						if (item.src || item.image) legacyGallery.append(createStoryImageFigure(story, item, index));
+					});
+				}
+				(story.body || story.summary || '').split(/\n\s*\n/).filter((text) => text.trim()).forEach((text) => {
+					const paragraph = document.createElement('p');
+					paragraph.textContent = text;
+					body.append(paragraph);
+				});
+			}
+			articleView.append(back, category, title, summary, meta);
+			if (legacyGallery) articleView.append(legacyGallery);
+			articleView.append(body);
 			newsSection.classList.add('hidden');
 			articleView.classList.add('open');
 		}
@@ -1429,6 +1506,10 @@ footer {
 			showArticle(hash ? decodeURIComponent(hash[1]) : null);
 		});
 		searchInput.addEventListener('input', filterStories);
+		document.getElementById('editor-login-button').addEventListener('click', () => {
+			editorModal.classList.add('open');
+			document.getElementById('editor-username').focus();
+		});
 		document.getElementById('close-editor-modal').addEventListener('click', () => editorModal.classList.remove('open'));
 		editorModal.addEventListener('click', (event) => {
 			if (event.target === editorModal) editorModal.classList.remove('open');
