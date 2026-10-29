@@ -30,7 +30,7 @@
 		async saveStory(story, imageFile, existingId = null, existingImage = '') {
 			if (!database) return null;
 			const storyId = existingId || database.collection('stories').doc().id;
-			let image = existingImage;
+			let image = existingImage || story.image || '';
 			if (imageFile) image = await compressImage(imageFile);
 			const record = { ...story, image, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 			if (!existingId) record.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -40,6 +40,7 @@
 		async deleteStory(storyId) {
 			if (database && storyId) await database.collection('stories').doc(storyId).delete();
 		},
+		prepareImage: compressImage,
 	};
 
 	function compressImage(file) {
@@ -50,12 +51,17 @@
 				const source = new Image();
 				source.onerror = () => reject(new Error('The selected file is not a valid image.'));
 				source.onload = () => {
-					const scale = Math.min(1, 1000 / source.width, 700 / source.height);
+					const scale = Math.min(1, 800 / source.width, 560 / source.height);
 					const canvas = document.createElement('canvas');
 					canvas.width = Math.max(1, Math.round(source.width * scale));
 					canvas.height = Math.max(1, Math.round(source.height * scale));
-					canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
-					resolve(canvas.toDataURL('image/jpeg', 0.75));
+					const context = canvas.getContext('2d');
+					if (!context) {
+						reject(new Error('The image could not be prepared.'));
+						return;
+					}
+					context.drawImage(source, 0, 0, canvas.width, canvas.height);
+					resolve(canvas.toDataURL('image/jpeg', 0.65));
 				};
 				source.src = reader.result;
 			};

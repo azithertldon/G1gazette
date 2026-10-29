@@ -61,11 +61,15 @@
 		#article-body { min-height: 220px; overflow-y: hidden; }
 		.editor-form input:focus, .editor-form textarea:focus, .editor-form select:focus { border-color: var(--red); outline: 2px solid rgba(179, 19, 27, 0.16); }
 		.image-customizer { display: grid; gap: 10px; padding: 14px; background: var(--paper); border: 1px solid var(--line); }
-		.image-preview { display: grid; width: min(100%, 420px); aspect-ratio: 16 / 9; overflow: hidden; background: #efe2a6; place-items: center; }
-		.image-preview img { display: none; width: 100%; height: 100%; object-fit: contain; }
-		.image-preview.has-image img { display: block; }
-		.image-preview-empty { color: var(--muted); font-size: 0.82rem; }
-		.image-preview.has-image .image-preview-empty { display: none; }
+		.image-list { display: grid; gap: 12px; }
+		.image-item { display: grid; gap: 10px; padding: 12px; background: var(--white); border: 1px solid var(--line); }
+		.image-item-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+		.image-item-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+		.image-preview { width: min(100%, 420px); aspect-ratio: 16 / 9; overflow: hidden; background: #efe2a6; }
+		.image-preview img { width: 100%; height: 100%; object-fit: contain; }
+		.image-caption-count { color: var(--muted); font-size: 0.75rem; font-weight: 400; }
+		.image-list-empty { margin: 0; color: var(--muted); font-size: 0.82rem; }
+		.image-position-fields { display: grid; gap: 8px; }
 		.range-row { display: grid; grid-template-columns: 1fr 54px; gap: 10px; align-items: center; }
 		.range-row input { width: 100%; padding: 0; accent-color: var(--red); }
 		.range-row output { color: var(--red-dark); font-size: 0.78rem; text-align: right; }
@@ -98,7 +102,7 @@
 		<div class="role-grid">
 			<section class="role-card" data-card="administrator"><span class="role-badge">Administrator</span><h2>God mode</h2><p>Full website control, staff management, publishing, and settings.</p></section>
 			<section class="role-card" data-card="chief-director"><span class="role-badge">Chief director</span><h2>Director access</h2><p>Review stories, guide the newsroom, and manage publishing decisions.</p></section>
-			<section class="role-card" data-card="editor"><span class="role-badge">Editor</span><h2>Upload news</h2><p>Write stories and upload local thumbnail images.</p></section>
+			<section class="role-card" data-card="editor"><span class="role-badge">Editor</span><h2>Upload news</h2><p>Write stories and add up to 10 optional images.</p></section>
 		</div>
 		<div class="notice" id="role-notice"></div>
 		<section class="management-panel hidden" id="admin-panel">
@@ -141,15 +145,12 @@
 				<label>Publication date <input id="article-date" type="date" required /></label>
 				<label>Category <select id="article-category"><option value="politics">Politics</option><option value="technology">Technology</option><option value="culture">Culture</option><option value="science">Science</option><option value="entertainment">Entertainment</option><option value="sports">Sports</option><option value="business">Business</option><option value="crime">Crime</option><option value="campus">Campus life</option></select></label>
 				<label>Author <input id="article-author" type="text" placeholder="Your name" required /></label>
-				<label>Thumbnail image <input id="article-image" type="file" accept="image/*" /></label>
+				<label>Images (optional, up to 10) <input id="article-image" type="file" accept="image/*" multiple /></label>
 				<div class="image-customizer">
-					<strong>Customize thumbnail</strong>
-					<div class="image-preview" id="image-preview"><span class="image-preview-empty">Choose an image to preview it here.</span><img id="image-preview-image" alt="Thumbnail preview" /></div>
-					<div class="shape-fields"><label>Shape width <input id="article-image-width" type="number" min="1" max="200" value="16" required /></label><label>Shape height <input id="article-image-height" type="number" min="1" max="200" value="9" required /></label></div>
-					<label>Image fitting <select id="article-image-fit"><option value="contain">Show full image (no crop)</option><option value="cover">Fill card (crop edges)</option></select></label>
-					<label>Horizontal focus <span class="range-row"><input id="article-image-x" type="range" min="0" max="100" value="50" /><output id="article-image-x-value">50%</output></span></label>
-					<label>Vertical focus <span class="range-row"><input id="article-image-y" type="range" min="0" max="100" value="50" /><output id="article-image-y-value">50%</output></span></label>
-					<label>Image zoom <span class="range-row"><input id="article-image-zoom" type="range" min="100" max="300" step="5" value="100" /><output id="article-image-zoom-value">100%</output></span></label>
+					<strong>Arrange and customize images</strong>
+					<p class="image-list-empty" id="image-list-empty">No images selected. Stories can be published without images.</p>
+					<div class="image-list" id="image-list"></div>
+					<div class="shape-fields"><label>Image shape width <input id="article-image-width" type="number" min="1" max="200" value="16" required /></label><label>Image shape height <input id="article-image-height" type="number" min="1" max="200" value="9" required /></label></div>
 				</div>
 				<button class="submit-button" id="article-submit" type="submit">Publish story</button>
 				<p class="status" id="article-status" role="status"></p>
@@ -200,6 +201,9 @@
 			editor: { username: 'editor', password: 'editor123', role: 'editor' },
 		};
 		let editingIndex = null;
+		let editorImages = [];
+		const MAX_STORY_IMAGES = 10;
+		const MAX_CAPTION_WORDS = 20;
 
 		function localDateValue(date) {
 			const year = date.getFullYear();
@@ -219,37 +223,132 @@
 			return document.getElementById('article-date').value;
 		}
 
-		function updateImagePreview() {
-			const fit = document.getElementById('article-image-fit').value;
-			const width = Math.max(1, Number(document.getElementById('article-image-width').value) || 16);
-			const height = Math.max(1, Number(document.getElementById('article-image-height').value) || 9);
-			const x = document.getElementById('article-image-x').value;
-			const y = document.getElementById('article-image-y').value;
-			const zoom = document.getElementById('article-image-zoom').value;
-			const preview = document.getElementById('image-preview-image');
-			preview.style.objectFit = fit;
-			preview.style.objectPosition = `${x}% ${y}%`;
-			preview.style.aspectRatio = `${width} / ${height}`;
-			preview.style.transform = `scale(${zoom / 100})`;
-			preview.style.transformOrigin = `${x}% ${y}%`;
-			document.getElementById('article-image-x-value').textContent = `${x}%`;
-			document.getElementById('article-image-y-value').textContent = `${y}%`;
-			document.getElementById('article-image-zoom-value').textContent = `${zoom}%`;
+		function captionWordCount(caption) {
+			return caption.trim().split(/\s+/).filter(Boolean).length;
 		}
 
-		function restoreImagePosition(value, zoom) {
-			const matches = value?.match(/(\d+)\s*%\s+(\d+)\s*%/);
-			document.getElementById('article-image-x').value = matches ? matches[1] : 50;
-			document.getElementById('article-image-y').value = matches ? matches[2] : 50;
-			document.getElementById('article-image-zoom').value = Math.round((zoom || 1) * 100);
-			updateImagePreview();
+		function updateImagePreview(index) {
+			const item = editorImages[index];
+			const preview = document.querySelector(`[data-image-preview="${index}"]`);
+			if (!item || !preview) return;
+			preview.style.objectFit = item.fit;
+			preview.style.objectPosition = `${item.positionX}% ${item.positionY}%`;
+			preview.style.aspectRatio = `${document.getElementById('article-image-width').value} / ${document.getElementById('article-image-height').value}`;
+			preview.style.transform = `scale(${item.zoom})`;
+			preview.style.transformOrigin = `${item.positionX}% ${item.positionY}%`;
+		}
+
+		function renderEditorImages() {
+			const list = document.getElementById('image-list');
+			list.textContent = '';
+			document.getElementById('image-list-empty').hidden = editorImages.length > 0;
+			editorImages.forEach((item, index) => {
+				const card = document.createElement('article');
+				card.className = 'image-item';
+				const header = document.createElement('div');
+				header.className = 'image-item-header';
+				const title = document.createElement('strong');
+				title.textContent = `Image ${index + 1}`;
+				const actions = document.createElement('div');
+				actions.className = 'image-item-actions';
+				[
+					{ action: 'up', text: 'Move up', disabled: index === 0 },
+					{ action: 'down', text: 'Move down', disabled: index === editorImages.length - 1 },
+					{ action: 'remove', text: 'Remove', disabled: false },
+				].forEach(({ action, text, disabled }) => {
+					const button = document.createElement('button');
+					button.type = 'button';
+					button.className = 'small-button';
+					button.dataset.imageAction = action;
+					button.dataset.index = index;
+					button.disabled = disabled;
+					button.textContent = text;
+					actions.append(button);
+				});
+				header.append(title, actions);
+				const preview = document.createElement('div');
+				preview.className = 'image-preview';
+				const image = document.createElement('img');
+				image.src = item.previewUrl || item.src;
+				image.alt = `Preview of image ${index + 1}`;
+				image.dataset.imagePreview = index;
+				preview.append(image);
+				const captionLabel = document.createElement('label');
+				captionLabel.textContent = 'Caption (optional, 20 words maximum)';
+				const captionInput = document.createElement('input');
+				captionInput.type = 'text';
+				captionInput.value = item.caption || '';
+				captionInput.dataset.imageField = 'caption';
+				captionInput.dataset.index = index;
+				captionInput.setAttribute('aria-label', `Caption for image ${index + 1}`);
+				const wordCount = document.createElement('span');
+				wordCount.className = 'image-caption-count';
+				wordCount.dataset.captionCount = index;
+				wordCount.textContent = `${captionWordCount(captionInput.value)}/${MAX_CAPTION_WORDS} words`;
+				captionLabel.append(captionInput, wordCount);
+				const position = document.createElement('details');
+				position.className = 'image-position-fields';
+				const summary = document.createElement('summary');
+				summary.textContent = 'Image position and crop';
+				position.append(summary);
+				const fitLabel = document.createElement('label');
+				fitLabel.textContent = 'Image fitting';
+				const fitSelect = document.createElement('select');
+				fitSelect.dataset.imageField = 'fit';
+				fitSelect.dataset.index = index;
+				[['contain', 'Show full image'], ['cover', 'Fill frame (crop edges)']].forEach(([value, text]) => {
+					const option = document.createElement('option');
+					option.value = value;
+					option.textContent = text;
+					fitSelect.append(option);
+				});
+				fitSelect.value = item.fit;
+				fitLabel.append(fitSelect);
+				position.append(fitLabel);
+				[
+					{ field: 'positionX', label: 'Horizontal focus', min: 0, max: 100, step: 1, value: item.positionX, suffix: '%' },
+					{ field: 'positionY', label: 'Vertical focus', min: 0, max: 100, step: 1, value: item.positionY, suffix: '%' },
+					{ field: 'zoom', label: 'Image zoom', min: 100, max: 300, step: 5, value: Math.round(item.zoom * 100), suffix: '%' },
+				].forEach(({ field, label, min, max, step, value, suffix }) => {
+					const controlLabel = document.createElement('label');
+					controlLabel.textContent = label;
+					const row = document.createElement('span');
+					row.className = 'range-row';
+					const input = document.createElement('input');
+					input.type = 'range';
+					input.min = min;
+					input.max = max;
+					input.step = step;
+					input.value = value;
+					input.dataset.imageField = field;
+					input.dataset.index = index;
+					const output = document.createElement('output');
+					output.textContent = `${value}${suffix}`;
+					output.dataset.imageOutput = field;
+					output.dataset.index = index;
+					row.append(input, output);
+					controlLabel.append(row);
+					position.append(controlLabel);
+				});
+				card.append(header, preview, captionLabel, position);
+				list.append(card);
+				updateImagePreview(index);
+			});
+		}
+
+		function releaseEditorImages() {
+			editorImages.forEach((item) => {
+				if (item.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+			});
+			editorImages = [];
+			renderEditorImages();
 		}
 
 		function restoreImageShape(value) {
 			const matches = value?.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
 			document.getElementById('article-image-width').value = matches ? matches[1] : 16;
 			document.getElementById('article-image-height').value = matches ? matches[2] : 9;
-			updateImagePreview();
+			editorImages.forEach((item, index) => updateImagePreview(index));
 		}
 		const role = new URLSearchParams(window.location.search).get('role');
 		if (!roleSettings[role]) window.location.href = 'index.html';
@@ -313,8 +412,10 @@
 				const row = document.createElement('article');
 				row.className = 'story-row';
 				const image = document.createElement('img');
-				image.src = story.image;
+				const thumbnail = story.images?.[0]?.src || story.images?.[0]?.image || story.image || '';
+				if (thumbnail) image.src = thumbnail;
 				image.alt = story.title;
+				image.hidden = !thumbnail;
 				const details = document.createElement('div');
 				const title = document.createElement('h3');
 				title.textContent = story.title;
@@ -391,11 +492,28 @@
 				resizeArticleBody();
 				document.getElementById('article-category').value = story.category;
 				document.getElementById('article-author').value = story.author;
-				document.getElementById('article-image-fit').value = story.imageFit || 'contain';
+				editorImages = (Array.isArray(story.images) && story.images.length ? story.images : story.image ? [{
+					src: story.image,
+					caption: story.imageCaption || '',
+					fit: story.imageFit,
+					position: story.imagePosition,
+					zoom: story.imageZoom,
+				}] : []).slice(0, MAX_STORY_IMAGES).map((image) => {
+					const position = image.position || image.imagePosition || story.imagePosition || '50% 50%';
+					const matches = position.match(/(\d+)\s*%\s+(\d+)\s*%/);
+					return {
+						src: image.src || image.image || '',
+						previewUrl: image.src || image.image || '',
+						file: null,
+						caption: image.caption || '',
+						fit: image.fit || image.imageFit || story.imageFit || 'contain',
+						positionX: matches ? Number(matches[1]) : 50,
+						positionY: matches ? Number(matches[2]) : 50,
+						zoom: image.zoom || image.imageZoom || story.imageZoom || 1,
+					};
+				});
 				restoreImageShape(story.imageAspectRatio);
-				document.getElementById('image-preview-image').src = story.image || '';
-				document.getElementById('image-preview').classList.toggle('has-image', Boolean(story.image));
-				restoreImagePosition(story.imagePosition, story.imageZoom);
+				renderEditorImages();
 				document.getElementById('article-image').required = false;
 				document.getElementById('article-submit').textContent = 'Save story changes';
 				document.getElementById('upload-panel').scrollIntoView({ behavior: 'smooth' });
@@ -404,95 +522,143 @@
 
 		document.getElementById('article-form').addEventListener('submit', async (event) => {
 			event.preventDefault();
-			const imageFile = document.getElementById('article-image').files[0];
 			const status = document.getElementById('article-status');
-			const stories = await getStories();
-			if (editingIndex === null && (!imageFile || !imageFile.type.startsWith('image/'))) {
-				status.textContent = 'Please choose an image file.';
+			if (editorImages.length > MAX_STORY_IMAGES) {
+				status.textContent = `Stories can have no more than ${MAX_STORY_IMAGES} images.`;
 				return;
 			}
-			if (window.newsFirebase?.enabled && !window.newsFirebase.initializationError) {
-				try {
-					const existingStory = editingIndex === null ? null : stories[editingIndex];
-					const remoteStory = await window.newsFirebase.saveStory({
-						title: document.getElementById('article-title').value,
-						summary: document.getElementById('article-summary').value,
-						body: document.getElementById('article-body').value,
-						category: document.getElementById('article-category').value,
-						author: document.getElementById('article-author').value,
-						imageFit: document.getElementById('article-image-fit').value,
-						imageAspectRatio: `${document.getElementById('article-image-width').value}/${document.getElementById('article-image-height').value}`,
-						imagePosition: `${document.getElementById('article-image-x').value}% ${document.getElementById('article-image-y').value}%`,
-						imageZoom: Number(document.getElementById('article-image-zoom').value) / 100,
-						date: publicationDateValue(),
-					}, imageFile, existingStory?.id, existingStory?.image);
-					if (editingIndex === null) stories.push(remoteStory);
-					else stories[editingIndex] = remoteStory;
-					localStorage.setItem('newsStories', JSON.stringify(stories));
-					status.textContent = 'Story published for every device.';
-					showPublishSuccess();
-					editingIndex = null;
-					document.getElementById('article-image').required = true;
-					document.getElementById('article-submit').textContent = 'Publish story';
-					event.target.reset();
-					document.getElementById('article-date').value = localDateValue(new Date());
-					if (role === 'administrator' || role === 'chief-director') renderStoryManager();
-				} catch (error) {
-					const reason = error.code === 'permission-denied' ? 'Firebase permissions blocked this upload.' : error.message;
-					status.textContent = `Firebase could not save this story: ${reason}`;
-					console.error(error);
-				}
+			const captionTooLong = editorImages.findIndex((item) => captionWordCount(item.caption || '') > MAX_CAPTION_WORDS);
+			if (captionTooLong !== -1) {
+				status.textContent = `Image ${captionTooLong + 1} caption must be ${MAX_CAPTION_WORDS} words or fewer.`;
 				return;
 			}
-			const saveStory = (image) => {
+			if (editorImages.some((item) => item.file && !item.file.type.startsWith('image/'))) {
+				status.textContent = 'Please choose image files only.';
+				return;
+			}
+			status.textContent = 'Saving story…';
+			try {
+				const stories = await getStories();
+				const width = document.getElementById('article-image-width').value;
+				const height = document.getElementById('article-image-height').value;
+				const images = await Promise.all(editorImages.map(async (item) => ({
+					src: item.file ? await window.newsFirebase.prepareImage(item.file) : item.src,
+					caption: (item.caption || '').trim(),
+					fit: item.fit,
+					position: `${item.positionX}% ${item.positionY}%`,
+					zoom: item.zoom,
+					aspectRatio: `${width}/${height}`,
+				})));
+				const firstImage = images[0];
 				const story = {
-					id: editingIndex === null ? makeStoryId(document.getElementById('article-title').value) : stories[editingIndex].id,
 					title: document.getElementById('article-title').value,
 					summary: document.getElementById('article-summary').value,
 					body: document.getElementById('article-body').value,
 					category: document.getElementById('article-category').value,
 					author: document.getElementById('article-author').value,
-					imageFit: document.getElementById('article-image-fit').value,
-					imageAspectRatio: `${document.getElementById('article-image-width').value}/${document.getElementById('article-image-height').value}`,
-					imagePosition: `${document.getElementById('article-image-x').value}% ${document.getElementById('article-image-y').value}%`,
-					imageZoom: Number(document.getElementById('article-image-zoom').value) / 100,
+					images,
+					image: firstImage?.src || '',
+					imageCaption: firstImage?.caption || '',
+					imageFit: firstImage?.fit || 'contain',
+					imageAspectRatio: `${width}/${height}`,
+					imagePosition: firstImage?.position || '50% 50%',
+					imageZoom: firstImage?.zoom || 1,
 					date: publicationDateValue(),
 				};
-				if (image) story.image = image;
-				if (editingIndex === null) stories.push(story);
-				else stories[editingIndex] = { ...stories[editingIndex], ...story };
-				localStorage.setItem('newsStories', JSON.stringify(stories));
-				status.textContent = editingIndex === null ? 'Story saved. Open the website to view it.' : 'Story changes saved.';
+				const existingStory = editingIndex === null ? null : stories[editingIndex];
+				if (window.newsFirebase?.enabled && !window.newsFirebase.initializationError) {
+					const remoteStory = await window.newsFirebase.saveStory(story, null, existingStory?.id, story.image);
+					if (editingIndex === null) stories.push(remoteStory);
+					else stories[editingIndex] = remoteStory;
+					localStorage.setItem('newsStories', JSON.stringify(stories));
+					status.textContent = 'Story published for every device.';
+				} else {
+					story.id = existingStory?.id || makeStoryId(story.title);
+					if (editingIndex === null) stories.push(story);
+					else stories[editingIndex] = { ...existingStory, ...story };
+					localStorage.setItem('newsStories', JSON.stringify(stories));
+					status.textContent = editingIndex === null ? 'Story saved. Open the website to view it.' : 'Story changes saved.';
+				}
 				showPublishSuccess();
 				editingIndex = null;
-				document.getElementById('article-image').required = true;
 				document.getElementById('article-submit').textContent = 'Publish story';
-				event.target.reset();
+				releaseEditorImages();
+				document.getElementById('article-form').reset();
 				document.getElementById('article-date').value = localDateValue(new Date());
+				restoreImageShape('');
 				if (role === 'administrator' || role === 'chief-director') renderStoryManager();
-			};
-			if (imageFile) {
-				const reader = new FileReader();
-				reader.onload = () => saveStory(reader.result);
-				reader.readAsDataURL(imageFile);
-			} else {
-				saveStory(stories[editingIndex].image);
+			} catch (error) {
+				const reason = error.code === 'permission-denied' ? 'Firebase permissions blocked this upload.' : error.message;
+				status.textContent = `Could not save this story: ${reason}`;
+				console.error(error);
 			}
 		});
 		document.getElementById('article-image').addEventListener('change', (event) => {
-			const imageFile = event.target.files[0];
-			if (!imageFile) return;
-			document.getElementById('image-preview-image').src = URL.createObjectURL(imageFile);
-			document.getElementById('image-preview').classList.add('has-image');
-			updateImagePreview();
+			const files = [...event.target.files];
+			const status = document.getElementById('article-status');
+			if (editorImages.length + files.length > MAX_STORY_IMAGES) {
+				status.textContent = `You can select up to ${MAX_STORY_IMAGES - editorImages.length} more image(s).`;
+				event.target.value = '';
+				return;
+			}
+			const invalidFile = files.find((file) => !file.type.startsWith('image/'));
+			if (invalidFile) {
+				status.textContent = 'Please choose image files only.';
+				event.target.value = '';
+				return;
+			}
+			files.forEach((file) => editorImages.push({
+				src: '',
+				previewUrl: URL.createObjectURL(file),
+				file,
+				caption: '',
+				fit: 'contain',
+				positionX: 50,
+				positionY: 50,
+				zoom: 1,
+			}));
+			status.textContent = '';
+			renderEditorImages();
+			event.target.value = '';
 		});
-		document.getElementById('article-image-fit').addEventListener('input', updateImagePreview);
-		document.getElementById('article-image-width').addEventListener('input', updateImagePreview);
-		document.getElementById('article-image-height').addEventListener('input', updateImagePreview);
-		document.getElementById('article-image-x').addEventListener('input', updateImagePreview);
-		document.getElementById('article-image-y').addEventListener('input', updateImagePreview);
-		document.getElementById('article-image-zoom').addEventListener('input', updateImagePreview);
-		updateImagePreview();
+		document.getElementById('image-list').addEventListener('input', (event) => {
+			const input = event.target.closest('[data-image-field]');
+			if (!input) return;
+			const index = Number(input.dataset.index);
+			const item = editorImages[index];
+			if (!item) return;
+			if (input.dataset.imageField === 'caption') {
+				item.caption = input.value;
+				document.querySelector(`[data-caption-count="${index}"]`).textContent = `${captionWordCount(input.value)}/${MAX_CAPTION_WORDS} words`;
+				return;
+			}
+			const field = input.dataset.imageField;
+			const value = Number(input.value);
+			if (field === 'positionX' || field === 'positionY') item[field] = value;
+			else if (field === 'zoom') item.zoom = value / 100;
+			else if (field === 'fit') item.fit = input.value;
+			const output = document.querySelector(`[data-image-output="${field}"][data-index="${index}"]`);
+			if (output) output.textContent = `${value}${field === 'zoom' ? '%' : '%'}`;
+			updateImagePreview(index);
+		});
+		document.getElementById('image-list').addEventListener('click', (event) => {
+			const button = event.target.closest('[data-image-action]');
+			if (!button) return;
+			const index = Number(button.dataset.index);
+			const action = button.dataset.imageAction;
+			if (action === 'remove') {
+				if (editorImages[index].previewUrl?.startsWith('blob:')) URL.revokeObjectURL(editorImages[index].previewUrl);
+				editorImages.splice(index, 1);
+			} else {
+				const nextIndex = action === 'up' ? index - 1 : index + 1;
+				if (nextIndex < 0 || nextIndex >= editorImages.length) return;
+				[editorImages[index], editorImages[nextIndex]] = [editorImages[nextIndex], editorImages[index]];
+			}
+			renderEditorImages();
+		});
+		document.getElementById('article-image-width').addEventListener('input', () => editorImages.forEach((item, index) => updateImagePreview(index)));
+		document.getElementById('article-image-height').addEventListener('input', () => editorImages.forEach((item, index) => updateImagePreview(index)));
+		renderEditorImages();
 	</script>
 </body>
 </html>
