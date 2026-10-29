@@ -86,7 +86,7 @@
 			box-shadow: 3px 3px 0 rgba(228, 200, 74, 0.35);
 		}
 		.search-box input:focus { border-color: var(--teal); box-shadow: 3px 3px 0 var(--teal); }
-		.editor-button { padding: 10px 14px; color: var(--teal-dark); background: transparent; border: 2px solid var(--teal); border-radius: 4px; font-weight: 700; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
+		.editor-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; padding: 10px 14px; color: var(--white); background: var(--coral); border: 2px solid var(--coral); border-radius: 4px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
 		.editor-button:hover { color: var(--white); background: var(--teal); }
 		.editor-button:active { transform: translateY(2px); }
 		.category-nav {
@@ -1163,7 +1163,7 @@ footer {
 		</a>
 		<div class="header-actions">
 			<label class="search-box"><span class="sr-only">Search stories</span><span class="search-icon" aria-hidden="true"></span><input id="search-input" type="search" aria-label="Search" placeholder="Search" /></label>
-			<button class="editor-button" id="editor-login-button" type="button">Staff login</button>
+			<a class="editor-button" href="staff.html">Staff login</a>
 		</div>
 	</header>
 	<nav class="category-nav" aria-label="News categories">
@@ -1429,10 +1429,6 @@ footer {
 			showArticle(hash ? decodeURIComponent(hash[1]) : null);
 		});
 		searchInput.addEventListener('input', filterStories);
-		document.getElementById('editor-login-button').addEventListener('click', () => {
-			editorModal.classList.add('open');
-			document.getElementById('editor-username').focus();
-		});
 		document.getElementById('close-editor-modal').addEventListener('click', () => editorModal.classList.remove('open'));
 		editorModal.addEventListener('click', (event) => {
 			if (event.target === editorModal) editorModal.classList.remove('open');
