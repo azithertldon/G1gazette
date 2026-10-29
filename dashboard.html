@@ -60,7 +60,9 @@
 		.editor-form textarea { min-height: 110px; resize: vertical; }
 		.editor-form input:focus, .editor-form textarea:focus, .editor-form select:focus { border-color: var(--red); outline: 2px solid rgba(179, 19, 27, 0.16); }
 		.story-composer { display: grid; gap: 12px; padding: 16px; background: var(--paper); border: 1px solid var(--line); }
-		.composer-toolbar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; background: var(--white); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(23, 23, 23, 0.18); }
+		.story-composer.has-docked-toolbar { padding-bottom: 96px; }
+		.composer-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; background: var(--white); border: 1px solid var(--line); }
+		.composer-toolbar.is-docked { position: fixed; right: 16px; bottom: 12px; left: 16px; z-index: 50; width: min(680px, calc(100vw - 32px)); margin: 0 auto; box-shadow: 0 4px 18px rgba(23, 23, 23, 0.3); }
 		.composer-toolbar .small-button { cursor: pointer; }
 		.story-block-list { display: grid; gap: 12px; }
 		.story-block { display: grid; gap: 10px; padding: 12px; background: var(--white); border: 1px solid var(--line); }
@@ -658,6 +660,14 @@
 			}
 			renderStoryBlocks();
 		});
+		const storyComposer = document.querySelector('.story-composer');
+		const composerToolbar = document.querySelector('.composer-toolbar');
+		const composerObserver = new IntersectionObserver(([entry]) => {
+			const shouldDock = entry.isIntersecting && entry.intersectionRect.height > 0;
+			composerToolbar.classList.toggle('is-docked', shouldDock);
+			storyComposer.classList.toggle('has-docked-toolbar', shouldDock);
+		});
+		composerObserver.observe(storyComposer);
 		renderStoryBlocks();
 	</script>
 </body>
