@@ -89,8 +89,6 @@
 		.editor-button { padding: 10px 14px; color: var(--teal-dark); background: transparent; border: 2px solid var(--teal); border-radius: 4px; font-weight: 700; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
 		.editor-button:hover { color: var(--white); background: var(--teal); }
 		.editor-button:active { transform: translateY(2px); }
-		.staff-only { display: none; }
-		.staff-only.visible { display: inline-block; }
 		.category-nav {
 			display: flex;
 			gap: 26px;
@@ -159,11 +157,7 @@
 		.article-view h1 { max-width: 800px; margin: 14px 0; font-size: clamp(2.3rem, 5vw, 4.5rem); }
 		.article-view .article-summary { color: var(--muted); font-size: 1.15rem; }
 		.article-view .article-meta { color: var(--muted); font-size: 0.85rem; }
-		.article-gallery { display: grid; gap: 24px; margin: 30px 0; }
-		.article-figure { margin: 0; }
-		.article-image-frame { width: 100%; max-height: 470px; overflow: hidden; background: var(--white); }
-		.article-view .article-image-frame img { width: 100%; height: 100%; max-height: 470px; margin: 0; object-fit: cover; }
-		.article-figure figcaption { padding: 8px 0 0; color: var(--muted); font-size: 0.88rem; font-style: italic; }
+		.article-view img { max-height: 470px; margin: 30px 0; object-fit: cover; }
 		.article-body { max-width: 700px; font-size: 1.08rem; line-height: 1.8; }
 		.article-body p { margin: 0 0 22px; white-space: pre-wrap; }
 		.back-to-stories { display: inline-block; margin-bottom: 28px; color: var(--teal); font-weight: 700; }
@@ -987,25 +981,13 @@ footer {
 		box-shadow: 0 22px 52px rgba(23, 23, 23, 0.12);
 	}
 
-	.article-view .article-image-frame {
+	.article-view img {
 		width: 100%;
+		height: auto;
 		max-height: 470px;
+		object-fit: cover;
 		border-radius: 18px;
 		box-shadow: 0 16px 30px rgba(23, 23, 23, 0.12);
-	}
-
-	.article-view .article-image-frame img {
-		width: 100%;
-		height: 100%;
-		max-height: 470px;
-		margin: 0;
-		object-fit: cover;
-		border-radius: 0;
-		box-shadow: none;
-	}
-
-	.article-view .article-figure figcaption {
-		padding: 10px 4px 0;
 	}
 
 	.back-to-stories {
@@ -1181,7 +1163,7 @@ footer {
 		</a>
 		<div class="header-actions">
 			<label class="search-box"><span class="sr-only">Search stories</span><span class="search-icon" aria-hidden="true"></span><input id="search-input" type="search" aria-label="Search" placeholder="Search" /></label>
-			<button class="editor-button staff-only" id="editor-login-button" type="button">Staff login</button>
+			<button class="editor-button" id="editor-login-button" type="button">Staff login</button>
 		</div>
 	</header>
 	<nav class="category-nav" aria-label="News categories">
@@ -1240,7 +1222,6 @@ footer {
 			'chief-director': { username: 'director', password: 'director123', role: 'chief-director' },
 			editor: { username: 'editor', password: 'editor123', role: 'editor' },
 		};
-		if (new URLSearchParams(window.location.search).get('staff') === '1') document.getElementById('editor-login-button').classList.add('visible');
 
 		function loadSiteSettings() {
 			const settings = JSON.parse(localStorage.getItem('siteSettings') || '{}');
@@ -1274,8 +1255,7 @@ footer {
 			card.dataset.category = article.category;
 			card.dataset.title = article.title;
 			const imageElement = document.createElement('img');
-			const thumbnail = article.images?.[0]?.src || article.images?.[0]?.image || article.image || '';
-			if (thumbnail) imageElement.src = thumbnail;
+			imageElement.src = article.image;
 			imageElement.alt = article.title;
 			imageElement.style.width = '100%';
 			imageElement.style.height = '100%';
@@ -1286,7 +1266,7 @@ footer {
 			imageElement.style.backgroundColor = 'transparent';
 			const imageFrame = document.createElement('div');
 			imageFrame.className = 'card-image-frame';
-			if (thumbnail) imageFrame.append(imageElement);
+			imageFrame.append(imageElement);
 			const content = document.createElement('div');
 			content.className = 'article-card-content';
 			const categoryElement = document.createElement('span');
@@ -1304,8 +1284,7 @@ footer {
 			timeElement.textContent = formatStoryDate(article.date === 'Just now' ? article.createdAt : article.date || article.createdAt);
 			meta.append(authorElement, timeElement);
 			content.append(categoryElement, titleElement, summaryElement, meta);
-			if (thumbnail) card.append(imageFrame);
-			card.append(content);
+			card.append(imageFrame, content);
 			const link = document.createElement('a');
 			link.className = 'article-link';
 			link.href = `#article=${encodeURIComponent(article.id || article.title)}`;
@@ -1387,43 +1366,13 @@ footer {
 			const meta = document.createElement('p');
 			meta.className = 'article-meta';
 			meta.textContent = `By ${story.author} · ${formatStoryDate(story.date === 'Just now' ? story.createdAt : story.date || story.createdAt)}`;
-			const images = Array.isArray(story.images) && story.images.length ? story.images : story.image ? [{
-				src: story.image,
-				caption: story.imageCaption,
-				fit: story.imageFit,
-				position: story.imagePosition,
-				zoom: story.imageZoom,
-				aspectRatio: story.imageAspectRatio,
-			}] : [];
-			const gallery = document.createElement('div');
-			gallery.className = 'article-gallery';
-			images.forEach((item) => {
-				if (!item.src && !item.image) return;
-				const figure = document.createElement('figure');
-				figure.className = 'article-figure';
-				const imageFrame = document.createElement('div');
-				imageFrame.className = 'article-image-frame';
-				imageFrame.style.aspectRatio = item.aspectRatio || story.imageAspectRatio || '16 / 9';
-				const image = document.createElement('img');
-				image.src = item.src || item.image;
-				image.alt = item.caption || story.title;
-				image.style.objectFit = item.fit || item.imageFit || story.imageFit || 'contain';
-				image.style.objectPosition = item.position || item.imagePosition || story.imagePosition || '50% 50%';
-				image.style.transform = `scale(${item.zoom || item.imageZoom || story.imageZoom || 1})`;
-				image.style.transformOrigin = image.style.objectPosition;
-				image.style.backgroundColor = image.style.objectFit === 'cover' ? 'transparent' : 'var(--paper)';
-				imageFrame.append(image);
-				figure.append(imageFrame);
-				if (item.caption) {
-					const caption = document.createElement('figcaption');
-					caption.textContent = item.caption;
-					figure.append(caption);
-				}
-				gallery.append(figure);
-			});
-			articleView.append(back, category, title, summary, meta);
-			if (gallery.childElementCount) articleView.append(gallery);
-			articleView.append(body);
+			const image = document.createElement('img');
+			image.src = story.image;
+			image.alt = story.title;
+			image.style.objectFit = story.imageFit || 'contain';
+			image.style.objectPosition = story.imagePosition || '50% 50%';
+			image.style.backgroundColor = story.imageFit === 'cover' ? 'transparent' : 'var(--paper)';
+			articleView.append(back, category, title, summary, meta, image, body);
 			newsSection.classList.add('hidden');
 			articleView.classList.add('open');
 		}
@@ -1452,11 +1401,7 @@ footer {
 			if (selectedCategory === 'all' && visibleCards.length) {
 				const featured = visibleCards[0];
 				featured.classList.add('featured-story');
-			}Can u make the editing interface consisting of these:
-
-1. my editors want more than one image to upload. make it optional for those bastards uwu so they can upload as much as they want BUT maximum 10 images
-2. below those images, they want to put a tiny bitsy caption. cap it to 20 words
-3. those images, let those editors position it as they want. please make this happen. im sick of this
+			}
 
 			emptyState.style.display = visibleCount ? 'none' : 'block';
 			emptyState.textContent = 'No stories published yet. Check back when the newsroom publishes its first update.';
@@ -1501,6 +1446,10 @@ footer {
 			if (account) window.location.href = `dashboard.html?role=${account.role}`;
 			else document.getElementById('login-status').textContent = 'Username or password is incorrect.';
 		});
+		if (new URLSearchParams(window.location.search).get('staff') === '1') {
+			editorModal.classList.add('open');
+			document.getElementById('editor-username').focus();
+		}
 	</script>
 </body>
 </html>
